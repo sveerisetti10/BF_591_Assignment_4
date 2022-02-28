@@ -25,7 +25,7 @@ markdown environments when grading them.
 
 ```{r setup, include=FALSE, results='hide'}
 #Source your main
-
+source("main.R")
 ```
 
 ## 1.  Reading and filtering count data
@@ -40,14 +40,17 @@ to reduce the size of our dataset if memory issues are a constraint.
 ### 1a. import data
 ```{r}
 #Read in verse_counts.tsv and display the head of the resulting tibble
-
+verse_counts <- read_tsv("/usr4/bf528/sv/Documents/BF_591_Assignment_4/verse_counts.tsv")
+head(verse_counts)
 #Display the top 10 rows of verse counts
 ```
 
 ### 1b. Apply filter_zero_var_genes()
 ```{r}
 #Filter out zero variance genes using the function you created in `main.R
-
+count_data <- filter_zero_var_genes(verse_counts) 
+no_header <- count_data[-c(1)] #we are removing the header of the count_data dataframe
+head(count_data)
 #display the head of the counts data from the zero variance filter function's output
 ```
 
@@ -67,7 +70,8 @@ with all the relevant information.
 
 ```{r}
 #Create and display the sample meta data tibble
-
+sample_meta <- meta_info_from_labels(colnames(no_header))
+knitr::kable(sample_meta)
 ```
 
 ## 3. Normalization
@@ -102,8 +106,14 @@ the barplot or write the code in the RMarkdown at your discretion.
 
 ```{r}
 #Calculate the number of reads in each sample and plot as a barplot
-
 #Make a barplot showing the number of millions of reads for each sample
+library <- get_library_size(count_data)
+pivot_longer(library/1000000, everything(), names_to = "Sample", values_to = "reads") %>%
+  mutate(Sample=factor(Sample, levels = colnames(library), exclude = NA, ordered = is.ordered(Sample), nmax = NA)) %>%
+  ggplot(aes(x = Sample, y = reads, fill = Sample)) +
+  geom_bar(stat = "identity")
+
+
 ```
 
 #### CPM calculation
@@ -113,7 +123,8 @@ the provided formula.
 
 ```{r}
 #Normalize your filtered counts matrix with CPM and display the head
-
+cpm <- normalize_by_cpm(count_data)
+head(cpm)
 ```
 
 ### 3b. Normalizing with DESeq2
@@ -135,7 +146,9 @@ may pass `~1` as the design formula to pass a trivial formula when creating the
 
 ```{r}
 #Normalize your filtered data and display the head of the resulting tibble
+dseqnormalized <- deseq_normalize(count_data, sample_meta) 
 
+head(dseqnormalized)
 ```
 
 ## 4 Visualization
@@ -154,6 +167,7 @@ function is able to scale the y-axis to $log10$ values if specified by the
 ```{r}
 #Create and display your count distributions boxplot
 
+plot_sample_distributions(no_header, scale_y_axis = TRUE, title = "Sample Distributions (Log10(Raw Counts)))")
 ```
 
 ### 4b. Count variance vs mean count
@@ -171,7 +185,7 @@ rank $1$.
 
 ```{r}
 #Create and display your variance vs mean plot
-
+plot_variance_vs_mean(no_header, TRUE, "Variance vs. Mean (Log10(Raw Counts))")
 ```
 
 ### 4c. Visualizing patterns with PCA
@@ -187,6 +201,7 @@ where each dot represents a sample and is colored by its respective sample name.
 
 ```{r}
 #Create and display your PCA plot
+plot_pca(no_header, sample_meta, 'Raw Counts PCA')
 
 ```
 
@@ -206,7 +221,10 @@ to `scale_y_axis` when calling functions that have that parameter.
 
 ```{r}
 #Create and display 3 plots of your cpm matrix: Sample Distribution, Variance vs Mean, and PCA
-
+plot_cpm <- cpm[c(-1)] 
+plot_sample_distributions(plot_cpm, TRUE, "Sample Distribution (log10(CPM))")
+plot_variance_vs_mean(plot_cpm, TRUE, "Variance vs Mean (DESeq2)")
+plot_pca(plot_cpm, sample_meta, "CPM PCA")
 ```
 
 ### 6. Visualizing DESeq2 Normalizion
@@ -224,5 +242,10 @@ display your Sample Distribution, Variance vs Mean, and PCA plots.
 
 ```{r}
 #Create and display 3 plots of your deseq-normalized data: Sample Distribution, Variance vs Mean, and PCA
+
+plot_dseqnormalized <- dseqnormalized[c(-1)] 
+plot_sample_distributions(plot_dseqnormalized, TRUE, "Sample Distribution (log10(DESeq2 norm counts" )
+plot_variance_vs_mean(plot_dseqnormalized, TRUE, "Variance vs Mean (CPM)" )
+plot_pca(plot_dseqnormalized, sample_meta, "DESeq2 Normalized PCA" )
 
 ```
